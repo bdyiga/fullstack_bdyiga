@@ -449,6 +449,10 @@ app.post("/api/member/registrations", async (request, response) => {
   response.status(201).json({ message: "Registration successful." } satisfies AuthResponse);
 });
 
-app.listen(port, () => {
-  console.log(`API listening on port ${port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`API listening on port ${port}`);
+  });
+}
+
+export default app;

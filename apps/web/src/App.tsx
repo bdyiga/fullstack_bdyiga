@@ -78,6 +78,11 @@ export default function App() {
 
   const [registeringClassId, setRegisteringClassId] = useState<string | null>(null);
 
+  // GROQ chat states
+  const [groqQuestion, setGroqQuestion] = useState("");
+  const [groqAnswer, setGroqAnswer] = useState<string | null>(null);
+  const [groqLoading, setGroqLoading] = useState(false);
+
   const dashboardTitle = useMemo(() => {
     if (!currentRole) {
       return "Community Classes";
@@ -300,6 +305,54 @@ export default function App() {
     setStatus("Logged out.");
   }
 
+  async function handleAskGroq() {
+    setGroqAnswer(null);
+    setGroqLoading(true);
+
+    try {
+      const url = (import.meta.env.VITE_GROQ_API_URL ?? "").trim();
+      const key = (import.meta.env.VITE_GROQ_API_KEY ?? "").trim();
+
+      if (!url) {
+        setStatus("GROQ API URL not configured (VITE_GROQ_API_URL).");
+        return;
+      }
+
+      if (!key) {
+        setStatus("GROQ API key not set (VITE_GROQ_API_KEY). Paste your key in .env.");
+        return;
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`
+        },
+        body: JSON.stringify({ prompt: groqQuestion })
+      });
+
+      // try parse json
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        const text = await res.text();
+        setGroqAnswer(text || "(empty response)");
+        return;
+      }
+
+      // common response shapes: { answer }, { result }, { text }, { choices: [{ text }] }
+      const answer = data.answer ?? data.result ?? data.text ?? (data.choices?.[0]?.text) ?? null;
+      setGroqAnswer(answer ? String(answer) : JSON.stringify(data, null, 2));
+    } catch (err) {
+      if (err instanceof Error) setGroqAnswer(err.message);
+      else setGroqAnswer("Request failed");
+    } finally {
+      setGroqLoading(false);
+    }
+  }
+
   return (
     <main className="page">
       <section className="panel">
@@ -489,6 +542,38 @@ export default function App() {
         )}
 
         {status && <p className="status">{status}</p>}
+        <section className="stack">
+          <h2>Ask the GROQ model</h2>
+          <textarea
+            placeholder="Type your question here..."
+            value={groqQuestion}
+            onChange={(e) => setGroqQuestion(e.target.value)}
+            rows={3}
+          />
+          <div className="row">
+            <button
+              type="button"
+              onClick={handleAskGroq}
+              disabled={groqLoading || groqQuestion.trim() === ""}
+            >
+              {groqLoading ? "Asking..." : "Ask"}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setGroqQuestion("");
+                setGroqAnswer(null);
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {groqAnswer && (
+            <pre className="groq-answer">{groqAnswer}</pre>
+          )}
+        </section>
       </section>
     </main>
   );
