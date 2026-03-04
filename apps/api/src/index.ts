@@ -182,6 +182,46 @@ app.get("/health", (_request, response) => {
   response.json({ status: "ok" });
 });
 
+app.post("/api/groq", async (request, response) => {
+  const prompt = request.body?.prompt;
+  if (!prompt) {
+    response.status(400).json({ error: "Missing prompt in request body." });
+    return;
+  }
+
+  const groqUrl = process.env.GROQ_API_URL;
+  const groqKey = process.env.GROQ_API_KEY;
+
+  if (!groqUrl || !groqKey) {
+    response.status(500).json({ error: "GROQ API not configured on server." });
+    return;
+  }
+
+  try {
+    const res = await fetch(groqUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqKey}`
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json();
+      response.json(data);
+      return;
+    }
+
+    const text = await res.text();
+    response.json({ text });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    response.status(500).json({ error: msg });
+  }
+});
+
 app.post("/api/auth/signup", async (request, response) => {
   const parsed = signupSchema.safeParse(request.body);
 

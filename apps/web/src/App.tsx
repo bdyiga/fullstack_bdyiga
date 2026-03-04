@@ -310,29 +310,14 @@ export default function App() {
     setGroqLoading(true);
 
     try {
-      const url = (import.meta.env.VITE_GROQ_API_URL ?? "").trim();
-      const key = (import.meta.env.VITE_GROQ_API_KEY ?? "").trim();
-
-      if (!url) {
-        setStatus("GROQ API URL not configured (VITE_GROQ_API_URL).");
-        return;
-      }
-
-      if (!key) {
-        setStatus("GROQ API key not set (VITE_GROQ_API_KEY). Paste your key in .env.");
-        return;
-      }
-
-      const res = await fetch(url, {
+      const res = await fetch(apiUrl("/api/groq"), {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ prompt: groqQuestion })
       });
 
-      // try parse json
       let data: any = null;
       try {
         data = await res.json();
@@ -342,8 +327,7 @@ export default function App() {
         return;
       }
 
-      // common response shapes: { answer }, { result }, { text }, { choices: [{ text }] }
-      const answer = data.answer ?? data.result ?? data.text ?? (data.choices?.[0]?.text) ?? null;
+      const answer = data.answer ?? data.result ?? data.text ?? (data.choices?.[0]?.text) ?? (data.text ?? null);
       setGroqAnswer(answer ? String(answer) : JSON.stringify(data, null, 2));
     } catch (err) {
       if (err instanceof Error) setGroqAnswer(err.message);
